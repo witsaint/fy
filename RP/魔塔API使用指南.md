@@ -31,7 +31,7 @@
 ### 步骤3：配置到项目
 ```bash
 # .env.local
-MODELSCOPE_ACCESS_TOKEN=ms-571153f6-c26d-4dba-b4c2-ec6a88450519
+MODELSCOPE_ACCESS_TOKEN=your_modelscope_token_here
 ```
 
 ---
@@ -100,7 +100,7 @@ async function callModelScope() {
 import OpenAI from 'openai';
 
 const client = new OpenAI({
-  apiKey: process.env.MODELSCOPE_ACCESS_TOKEN || 'ms-571153f6-c26d-4dba-b4c2-ec6a88450519',
+  apiKey: process.env.MODELSCOPE_ACCESS_TOKEN,
   baseURL: 'https://api-inference.modelscope.cn/v1/'
 });
 

@@ -234,7 +234,7 @@ import OpenAI from 'openai';
 
 // 使用魔塔（ModelScope）API - OpenAI兼容接口
 const client = new OpenAI({
-  apiKey: process.env.MODELSCOPE_ACCESS_TOKEN || 'ms-571153f6-c26d-4dba-b4c2-ec6a88450519',
+  apiKey: process.env.MODELSCOPE_ACCESS_TOKEN || 'your_modelscope_token_here',
   baseURL: 'https://api-inference.modelscope.cn/v1/'
 });
 
@@ -864,7 +864,7 @@ BAIDU_API_KEY=your_baidu_api_key
 BAIDU_SECRET_KEY=your_baidu_secret_key
 
 # 魔塔（ModelScope）AI解析（必需）
-MODELSCOPE_ACCESS_TOKEN=ms-571153f6-c26d-4dba-b4c2-ec6a88450519
+MODELSCOPE_ACCESS_TOKEN=your_modelscope_token_here
 
 # 说明：
 # 1. 百度OCR用于图片文字识别

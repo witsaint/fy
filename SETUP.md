@@ -19,7 +19,7 @@ npm install
 
 ```bash
 # 魔塔 API Token
-MODELSCOPE_ACCESS_TOKEN=ms-571153f6-c26d-4dba-b4c2-ec6a88450519
+MODELSCOPE_ACCESS_TOKEN=your_modelscope_token_here
 
 # OCR 模型（DeepSeek-OCR-2）
 OCR_MODEL_ID=deepseek-ai/DeepSeek-OCR-2

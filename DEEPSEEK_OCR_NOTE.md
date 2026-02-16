@@ -43,7 +43,7 @@ OCR_MODEL_ID=Qwen/Qwen2-VL-7B-Instruct
 
 ```bash
 # .env.local
-MODELSCOPE_ACCESS_TOKEN=ms-571153f6-c26d-4dba-b4c2-ec6a88450519
+MODELSCOPE_ACCESS_TOKEN=your_modelscope_token_here
 
 # 使用 Qwen-VL 系列（推荐）
 OCR_MODEL_ID=Qwen/Qwen2-VL-7B-Instruct
