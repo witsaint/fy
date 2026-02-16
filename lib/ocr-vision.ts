@@ -86,9 +86,9 @@ export async function recognizeImageWithVisionModel(base64Image: string): Promis
 }
 
 /**
- * 使用多模态模型直接提取结构化房源信息
+ * 使用多模态模型直接提取结构化房源信息（支持多个房源）
  * @param base64Image Base64编码的图片
- * @returns 结构化的房源信息JSON
+ * @returns 结构化的房源信息JSON（可能是单个对象或数组）
  */
 export async function recognizeImageWithStructure(base64Image: string): Promise<string> {
   try {
@@ -110,14 +110,14 @@ export async function recognizeImageWithStructure(base64Image: string): Promise<
       messages: [
         {
           role: 'system',
-          content: '你是一个专业的房源信息提取助手，擅长从图片中识别并提取结构化的房源数据。请仔细识别图片中的所有文字和表格信息。'
+          content: '你是一个专业的房源信息提取助手，擅长从图片中识别并提取结构化的房源数据。请仔细识别图片中的所有文字和表格信息。如果图片中有多个房源，请全部提取。'
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: `请从这张房源信息图片中提取以下8个字段，并以JSON格式返回：
+              text: `请从这张房源信息图片中提取所有房源信息，每个房源包含以下9个字段：
 
 **字段要求：**
 1. region（区域）：房源所属行政区域，必须是以下之一：瑶海区、经开区、蜀山区、庐阳区、包河区、新站区
@@ -127,14 +127,18 @@ export async function recognizeImageWithStructure(base64Image: string): Promise<
 5. price（价格）：租金价格+单位，如"42元/㎡/天"
 6. propertyFee（物业费）：物业费+单位，如"3.5元/㎡/月"，如包含在租金内则标注"含在租金内"
 7. commission（佣金）：佣金政策，如"全佣金"
-8. remarks（备注）：其他补充信息
+8. rented（已出租）：判断该房源是否已出租，如果该行有横线、删除线或"已租"等标记，填写"是"，否则填写"否"
+9. remarks（备注）：其他补充信息
 
 **注意事项：**
 - 如果某个字段无法识别或图片中没有该信息，请填写"无"
 - 面积无单位时自动补充"㎡"
 - 区域名称必须标准化（如"瑶海"改为"瑶海区"）
+- **重要**：如果图片中某行数据有横线划掉、删除线样式、或标注"已租"等，该行的rented字段必须填写"是"
+- 如果图片中只有一个房源，返回单个JSON对象
+- 如果图片中有多个房源（如表格中多行），返回JSON数组
 
-**请仅返回JSON格式，不要markdown代码块，不要其他说明：**
+**返回格式（单个房源）：**
 {
   "region": "",
   "building": "",
@@ -143,8 +147,27 @@ export async function recognizeImageWithStructure(base64Image: string): Promise<
   "price": "",
   "propertyFee": "",
   "commission": "",
+  "rented": "",
   "remarks": ""
-}`
+}
+
+**返回格式（多个房源）：**
+[
+  {
+    "region": "",
+    "building": "",
+    "roomNumber": "",
+    "area": "",
+    "price": "",
+    "propertyFee": "",
+    "commission": "",
+    "rented": "",
+    "remarks": ""
+  },
+  ...
+]
+
+请仅返回JSON格式，不要markdown代码块，不要其他说明。`
             },
             {
               type: 'image_url',
@@ -157,7 +180,7 @@ export async function recognizeImageWithStructure(base64Image: string): Promise<
         }
       ],
       temperature: config.ocrModel.temperature,
-      max_tokens: config.ocrModel.maxTokens,
+      max_tokens: 4096, // 增加token限制以支持多个房源
     });
 
     const result = completion.choices[0]?.message?.content || '';

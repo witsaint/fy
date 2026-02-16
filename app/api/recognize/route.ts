@@ -1,19 +1,13 @@
 /**
  * 图片识别API路由 - 完整版
- * 支持两种识别方式：
- * 1. 多模态直接识别（推荐）
- * 2. OCR文字识别 + 文本模型解析
+ * 使用多模态模型直接识别（推荐）
+ * 支持单个或多个房源识别
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { recognizeImageWithVisionModel, recognizeImageWithStructure } from '@/lib/ocr-vision';
-import { parsePropertyFromText } from '@/lib/ai-parser-text';
+import { recognizeImageWithStructure } from '@/lib/ocr-vision';
 import { normalizeProperty } from '@/lib/data-normalizer';
 import { config, validateConfig } from '@/lib/config';
-
-
-// 识别模式
-type RecognitionMode = 'direct' | 'two-step';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,10 +15,7 @@ export async function POST(request: NextRequest) {
     validateConfig();
 
     const body = await request.json();
-    const { image, mode = 'two-step' } = body as { 
-      image: string; 
-      mode?: RecognitionMode 
-    };
+    const { image } = body as { image: string };
     
     if (!image) {
       return NextResponse.json({
@@ -34,71 +25,61 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[识别开始]', { 
-      mode,
       ocrModel: config.ocrModel.modelId,
-      textModel: config.textModel.modelId,
       imageSize: image.length
     });
 
-    let rawProperty;
-
-    // 暂时使用两步识别模式，因为 DeepSeek-OCR-2 可能不支持直接结构化输出
-    if (mode === 'direct') {
-      console.log('[尝试多模态直接识别]');
-      
-      try {
-        const structuredText = await recognizeImageWithStructure(image);
-        
-        // 提取JSON
-        const jsonMatch = structuredText.match(/\{[\s\S]*?\}/);
-        if (!jsonMatch) {
-          console.warn('[直接识别失败，降级到两步识别]');
-          // 降级到两步识别
-          const ocrText = await recognizeImageWithVisionModel(image);
-          rawProperty = await parsePropertyFromText(ocrText);
-        } else {
-          rawProperty = JSON.parse(jsonMatch[0]);
-        }
-      } catch (error: any) {
-        console.warn('[直接识别失败，降级到两步识别]', error.message);
-        // 降级到两步识别
-        const ocrText = await recognizeImageWithVisionModel(image);
-        rawProperty = await parsePropertyFromText(ocrText);
-      }
-      
-    } else {
-      // 方式2：两步识别（推荐）
-      console.log('[使用两步识别：OCR + 文本解析]');
-      
-      // 步骤1：多模态模型识别文字
-      const ocrText = await recognizeImageWithVisionModel(image);
-      console.log('[OCR识别完成]', { 
-        textLength: ocrText.length,
-        preview: ocrText.substring(0, 200)
-      });
-      
-      // 步骤2：文本模型解析结构
-      rawProperty = await parsePropertyFromText(ocrText);
-      console.log('[文本解析完成]', { fields: Object.keys(rawProperty).length });
+    // 使用多模态模型直接识别
+    console.log('[使用多模态直接识别]');
+    
+    const structuredText = await recognizeImageWithStructure(image);
+    console.log('[模型返回结果]', { 
+      resultLength: structuredText.length,
+      preview: structuredText.substring(0, 300)
+    });
+    
+    // 提取JSON（支持单个对象或数组）
+    let jsonMatch = structuredText.match(/\[[\s\S]*?\]/) || structuredText.match(/\{[\s\S]*?\}/);
+    
+    if (!jsonMatch) {
+      console.error('[识别失败] 无法提取JSON', { structuredText });
+      return NextResponse.json({
+        success: false,
+        error: '识别失败：无法提取结构化数据'
+      }, { status: 500 });
     }
 
-    // 数据规整
-    const property = normalizeProperty(rawProperty);
+    const parsedData = JSON.parse(jsonMatch[0]);
+    console.log('[JSON解析成功]', { 
+      isArray: Array.isArray(parsedData),
+      count: Array.isArray(parsedData) ? parsedData.length : 1
+    });
+
+    // 处理单个或多个房源
+    let properties;
+    if (Array.isArray(parsedData)) {
+      // 多个房源
+      properties = parsedData.map(raw => normalizeProperty(raw));
+    } else {
+      // 单个房源
+      properties = [normalizeProperty(parsedData)];
+    }
     
     console.log('[识别完成]', {
-      id: property.id,
-      region: property.region,
-      building: property.building,
-      confidence: property.confidence
+      totalProperties: properties.length,
+      properties: properties.map(p => ({
+        id: p.id,
+        region: p.region,
+        building: p.building
+      }))
     });
 
     return NextResponse.json({
       success: true,
-      data: property,
+      data: properties.length === 1 ? properties[0] : properties,
       meta: {
-        mode,
-        ocrModel: config.ocrModel.modelId,
-        textModel: mode === 'two-step' ? config.textModel.modelId : null
+        count: properties.length,
+        ocrModel: config.ocrModel.modelId
       }
     });
     
