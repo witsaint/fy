@@ -43,11 +43,25 @@ yarn install
 
 ### 3. 配置环境变量
 
+⚠️ **重要：请勿将真实的 API Token 提交到代码仓库！**
+
 复制环境变量模板：
 
 ```bash
 cp .env.example .env.local
 ```
+
+编辑 `.env.local` 文件，填写你的 ModelScope API Token：
+
+1. 访问 [ModelScope](https://modelscope.cn/my/myaccesstoken) 获取 Token
+2. 将 `your_modelscope_token_here` 替换为你的真实 Token
+
+```bash
+# .env.local
+MODELSCOPE_ACCESS_TOKEN=your_actual_token_here
+```
+
+> 📚 详细安全配置说明请查看 [SECURITY.md](./SECURITY.md)
 
 编辑 `.env.local`，填写您的魔塔API Token：
 
