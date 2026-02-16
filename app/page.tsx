@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Upload, FileImage, Loader2, CheckCircle2, XCircle, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Upload, FileImage, Loader2, CheckCircle2, XCircle, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import * as XLSX from 'xlsx';
 
 interface PropertyData {
   id: string;
@@ -166,13 +167,6 @@ export default function Home() {
     return Array.from(regions).sort();
   }, [successResults]);
 
-  // 切换区域筛选
-  const toggleRegion = (region: string) => {
-    setSelectedRegions((prev) =>
-      prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region]
-    );
-  };
-
   // 提取数字的辅助函数
   const extractNumber = (value: string): number => {
     const match = value.match(/[\d.]+/);
@@ -246,6 +240,50 @@ export default function Home() {
     ) : (
       <ArrowDown className="w-4 h-4 ml-1 inline text-blue-500" />
     );
+  };
+
+  // 导出Excel功能
+  const handleExportExcel = () => {
+    // 准备数据
+    const excelData = filteredAndSortedResults.map((item) => ({
+      '区域': item.region || '-',
+      '楼盘': item.building || '-',
+      '房号': item.roomNumber || '-',
+      '面积': item.area || '-',
+      '价格': item.price || '-',
+      '物业费': item.propertyFee || '-',
+      '佣金': item.commission || '-',
+      '已出租': item.rented || '-',
+      '备注': item.remarks || '-',
+    }));
+
+    // 创建工作表
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    
+    // 设置列宽
+    const colWidths = [
+      { wch: 12 }, // 区域
+      { wch: 25 }, // 楼盘
+      { wch: 15 }, // 房号
+      { wch: 15 }, // 面积
+      { wch: 20 }, // 价格
+      { wch: 18 }, // 物业费
+      { wch: 12 }, // 佣金
+      { wch: 10 }, // 已出租
+      { wch: 30 }, // 备注
+    ];
+    worksheet['!cols'] = colWidths;
+
+    // 创建工作簿
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '房源信息');
+
+    // 生成文件名（包含时间戳）
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const filename = `房源信息汇总_${timestamp}.xlsx`;
+
+    // 下载文件
+    XLSX.writeFile(workbook, filename);
   };
 
   return (
@@ -479,7 +517,7 @@ export default function Home() {
           <Card className="shadow-lg max-w-7xl mx-auto">
             <CardHeader>
               <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div>
                     <CardTitle>数据汇总表</CardTitle>
                     <CardDescription>
@@ -487,48 +525,48 @@ export default function Home() {
                       {(searchQuery || selectedRegions.length > 0) && ` · 筛选后 ${filteredAndSortedResults.length} 条`}
                     </CardDescription>
                   </div>
-                  {/* 搜索框 */}
-                  <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      type="text"
-                      placeholder="搜索区域、楼盘、面积..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
+
+                  <div className="flex items-center gap-3">
+                    {/* 区域下拉筛选 */}
+                    {allRegions.length > 0 && (
+                      <select
+                        value={selectedRegions[0] || ''}
+                        onChange={(e) => setSelectedRegions(e.target.value ? [e.target.value] : [])}
+                        className="h-10 px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">全部区域</option>
+                        {allRegions.map((region) => (
+                          <option key={region} value={region}>
+                            {region}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    {/* 搜索框 */}
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input
+                        type="text"
+                        placeholder="搜索楼盘、面积..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+
+                    {/* 导出Excel按钮 */}
+                    <Button
+                      onClick={handleExportExcel}
+                      disabled={filteredAndSortedResults.length === 0}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      导出Excel
+                    </Button>
                   </div>
                 </div>
-
-                {/* 区域筛选器 */}
-                {allRegions.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 self-center">
-                      区域筛选：
-                    </span>
-                    {allRegions.map((region) => (
-                      <button
-                        key={region}
-                        onClick={() => toggleRegion(region)}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          selectedRegions.includes(region)
-                            ? 'bg-blue-500 text-white hover:bg-blue-600'
-                            : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
-                        }`}
-                      >
-                        {region}
-                      </button>
-                    ))}
-                    {selectedRegions.length > 0 && (
-                      <button
-                        onClick={() => setSelectedRegions([])}
-                        className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
-                      >
-                        清除筛选
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
             </CardHeader>
             <CardContent>
