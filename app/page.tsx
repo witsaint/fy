@@ -54,8 +54,6 @@ export default function Home() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const newTasks: ImageTask[] = [];
-
     files.forEach((file) => {
       // 验证文件类型
       if (!file.type.match(/image\/(jpeg|jpg|png)/)) {

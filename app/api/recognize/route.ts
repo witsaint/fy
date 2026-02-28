@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     });
     
     // 提取JSON（支持单个对象或数组）
-    let jsonMatch = structuredText.match(/\[[\s\S]*?\]/) || structuredText.match(/\{[\s\S]*?\}/);
+    const jsonMatch = structuredText.match(/\[[\s\S]*?\]/) || structuredText.match(/\{[\s\S]*?\}/);
     
     if (!jsonMatch) {
       console.error('[识别失败] 无法提取JSON', { structuredText });
