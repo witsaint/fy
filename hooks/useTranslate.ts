@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import type { ImageItem } from '@/types/translate';
+import type { ImageItem, ChannelKey } from '@/types/translate';
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -19,6 +19,7 @@ function fileToBase64(file: File): Promise<string> {
 export function useTranslate() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [targetLang, setTargetLang] = useState('en');
+  const [channel, setChannel] = useState<ChannelKey>('volcengine');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const updateImage = useCallback((id: string, updates: Partial<ImageItem>) => {
@@ -62,7 +63,7 @@ export function useTranslate() {
         const res = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: image.id, base64, format, targetLang }),
+          body: JSON.stringify({ id: image.id, base64, format, targetLang, channel }),
         });
 
         const data = await res.json();
@@ -83,7 +84,7 @@ export function useTranslate() {
         updateImage(image.id, { status: 'error', errorMessage: '网络错误，请重试' });
       }
     },
-    [targetLang, updateImage]
+    [targetLang, channel, updateImage]
   );
 
   // 批量处理：前端逐张调用 /api/translate，最多 3 张并发
@@ -116,10 +117,12 @@ export function useTranslate() {
   return {
     images,
     targetLang,
+    channel,
     isProcessing,
     doneImages,
     hasPending,
     setTargetLang,
+    setChannel,
     addImages,
     removeImage,
     clearAll,

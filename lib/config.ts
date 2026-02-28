@@ -24,6 +24,13 @@ export const config = {
     maxTokens: parseInt(process.env.TEXT_MAX_TOKENS || '1024', 10),
   },
 
+  // 火山引擎配置（SeedEdit 3.0 图生图）
+  volcengine: {
+    accessKey: process.env.VOLCENGINE_ACCESS_KEY || '',
+    secretKey: process.env.VOLCENGINE_SECRET_KEY || '',
+    endpoint: process.env.VOLCENGINE_ENDPOINT || 'https://visual.volcengineapi.com',
+  },
+
   // 百度OCR配置（备选方案）
   baiduOCR: {
     apiKey: process.env.BAIDU_API_KEY || '',

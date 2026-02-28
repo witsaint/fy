@@ -10,16 +10,19 @@ import { useTranslate } from '@/hooks/useTranslate';
 import UploadZone from '@/components/UploadZone';
 import ImageCard from '@/components/ImageCard';
 import LanguageSelector from '@/components/LanguageSelector';
+import ChannelSelector from '@/components/ChannelSelector';
 import { Button } from '@/components/ui/button';
 
 export default function TranslatePage() {
   const {
     images,
     targetLang,
+    channel,
     isProcessing,
     doneImages,
     hasPending,
     setTargetLang,
+    setChannel,
     addImages,
     removeImage,
     clearAll,
@@ -85,12 +88,19 @@ export default function TranslatePage() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-5 px-4 py-6">
-        {/* 语言选择 */}
-        <LanguageSelector
-          value={targetLang}
-          onChange={setTargetLang}
-          disabled={isProcessing}
-        />
+        {/* 语言选择 + 渠道选择 */}
+        <div className="flex flex-wrap gap-3">
+          <LanguageSelector
+            value={targetLang}
+            onChange={setTargetLang}
+            disabled={isProcessing}
+          />
+          <ChannelSelector
+            value={channel}
+            onChange={setChannel}
+            disabled={isProcessing}
+          />
+        </div>
 
         {/* 上传区域 */}
         <UploadZone

@@ -1,5 +1,16 @@
 export type ImageStatus = 'idle' | 'processing' | 'done' | 'error';
 
+export type ChannelKey = 'volcengine';
+
+export interface Channel {
+  key: ChannelKey;
+  name: string;
+}
+
+export const CHANNELS: Channel[] = [
+  { key: 'volcengine', name: '火山引擎' },
+];
+
 export interface ImageItem {
   id: string;
   file: File;

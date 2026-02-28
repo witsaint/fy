@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { editImageText } from '@/lib/image-edit';
+import type { ChannelKey } from '@/types/translate';
+import { ocrAndTranslate } from '@/lib/ocr-translate';
+import { dispatchChannel } from '@/lib/channels';
 
 export async function POST(request: NextRequest) {
   let id: string | undefined;
@@ -7,7 +9,18 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     id = body.id;
-    const { base64, format = 'jpeg', targetLang } = body;
+    const {
+      base64,
+      format = 'jpeg',
+      targetLang,
+      channel = 'volcengine',
+    } = body as {
+      id: string;
+      base64: string;
+      format?: string;
+      targetLang: string;
+      channel?: ChannelKey;
+    };
 
     if (!id || !base64 || !targetLang) {
       return NextResponse.json(
@@ -16,13 +29,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // qwen-image-edit 一步完成：识别中文 + 翻译 + 替换图内文字，直接返回处理后图片
-    const translatedBase64 = await editImageText(base64, format, targetLang);
+    // Step 1 + 2：识别非商品文字 → 翻译
+    const pairs = await ocrAndTranslate(base64, format, targetLang);
+
+    if (pairs.length === 0) {
+      return NextResponse.json({ id, success: false, error: '未识别到广告文案文字' });
+    }
+
+    // Step 3：调用渠道图生图
+    const translatedBase64 = await dispatchChannel(channel, base64, pairs);
 
     return NextResponse.json({
       id,
       success: true,
       translatedBase64,
+      texts: pairs,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '处理失败';

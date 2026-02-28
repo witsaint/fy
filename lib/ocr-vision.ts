@@ -6,7 +6,7 @@
 import OpenAI from 'openai';
 import { config } from './config';
 
-// 初始化客户端
+// 
 const client = new OpenAI({
   apiKey: config.modelScope.apiKey,
   baseURL: config.modelScope.baseURL,
@@ -79,6 +79,8 @@ export async function recognizeImageWithVisionModel(base64Image: string): Promis
       model: config.ocrModel.modelId,
       error: error.message,
       status: error.status,
+      headers: error.headers,
+      body: error.error,
       response: error.response?.data
     });
     throw new Error(`OCR识别失败: ${error.message}`);
