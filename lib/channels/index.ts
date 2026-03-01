@@ -9,11 +9,12 @@ import { volcengineSubmitTask, volcengineQueryTask } from './volcengine';
 export async function dispatchSubmitTask(
   channel: ChannelKey,
   base64: string,
-  pairs: TextPair[]
+  pairs: TextPair[],
+  targetLang: string
 ): Promise<string> {
   switch (channel) {
     case 'volcengine': {
-      const { taskId } = await volcengineSubmitTask(base64, pairs);
+      const { taskId } = await volcengineSubmitTask(base64, pairs, targetLang);
       return taskId;
     }
     default:

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3：提交异步图生图任务，返回 taskId
-    const taskId = await dispatchSubmitTask(channel, base64, pairs);
+    const taskId = await dispatchSubmitTask(channel, base64, pairs, targetLang);
 
     return NextResponse.json({
       id,

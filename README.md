@@ -1,356 +1,249 @@
-# 房源图片信息汇总工具
+# FY — 图片 AI 处理平台
 
-基于 Next.js + TypeScript + 魔塔AI 开发的智能房源信息识别系统。
+基于 **Next.js 14 + TypeScript + 魔塔 AI + 火山引擎** 构建的图片智能处理工具，目前集成两大功能模块。
 
-## 功能特点
+---
 
-- 🖼️ **智能图片识别**：支持JPG/PNG格式，批量上传最多20张
-- 🤖 **AI自动提取**：使用魔塔多模态模型，自动识别房源8大核心字段
-- 📊 **表格管理**：实时展示、编辑、筛选房源信息
-- 📥 **一键导出**：导出Excel格式，兼容WPS和Office
-- ⚡ **极速响应**：2-3秒完成单张图片识别
-- 💰 **成本低廉**：月处理1000张图片仅需1.5元
+## 功能模块
+
+### 模块一：房源图片信息提取
+
+> 路由：`/`（主页）
+
+上传房源截图，AI 自动识别并结构化提取房源核心字段，支持导出 Excel。
+
+| 特性 | 说明 |
+|------|------|
+| 图片格式 | JPG / PNG，单张 ≤ 10MB，最多 20 张 |
+| 识别字段 | 区域、楼盘、房号、面积、价格、物业费、佣金、备注 |
+| AI 模型 | 魔塔多模态 VL 模型（OCR）+ 文本模型（解析） |
+| 识别速度 | 2–3 秒 / 张 |
+| 导出格式 | `.xlsx`（兼容 Office / WPS） |
+
+### 模块二：图片文本翻译替换
+
+> 路由：`/translate`
+
+上传广告图片，AI 识别图中中文广告文案 → 翻译成目标语言 → 调用火山引擎 SeedEdit 3.0 将原图中的文字原位替换为译文，返回处理后的图片。
+
+| 特性 | 说明 |
+|------|------|
+| 图片格式 | JPG / PNG / WebP，单张 ≤ 10MB，最多 20 张 |
+| 目标语言 | 英语、日语、韩语、西班牙语、法语、德语、俄语、泰语、越南语、印尼语 |
+| 识别排除 | 品牌名、产品型号、价格数字、纯英文/数字内容自动跳过，不参与翻译 |
+| 图生图引擎 | 火山引擎 SeedEdit 3.0（异步任务，自动轮询） |
+| 下载文件名 | `原文件名_translated.扩展名` |
+| 批量下载 | 前端打包 ZIP，ZIP 内每张图文件名同上 |
+| 图片预览 | 点击卡片可放大，支持原图 / 译图切换 |
+
+---
 
 ## 技术栈
 
-- **框架**：Next.js 14 (App Router)
-- **语言**：TypeScript
-- **UI组件**：Ant Design 5.x
-- **样式**：Tailwind CSS
-- **AI服务**：魔塔（ModelScope）API
-  - OCR模型：Qwen/Qwen2-VL-7B-Instruct
-  - 解析模型：Qwen/Qwen2.5-32B-Instruct
-- **Excel处理**：xlsx
+| 层次 | 技术 |
+|------|------|
+| 框架 | Next.js 14（App Router） |
+| 语言 | TypeScript |
+| 样式 | Tailwind CSS + shadcn/ui |
+| AI OCR & 翻译 | 魔塔（ModelScope）DashScope 兼容 API |
+| 图生图 | 火山引擎视觉服务 `visual.volcengineapi.com` |
+| 签名 | 自实现 HMAC-SHA256（Volcengine 规范） |
+| 打包下载 | JSZip + file-saver |
+
+---
 
 ## 快速开始
 
-### 1. 克隆项目
+### 1. 安装依赖
 
 ```bash
-git clone <repository-url>
-cd fy
-```
-
-### 2. 安装依赖
-
-```bash
-npm install
-# 或
 pnpm install
-# 或
-yarn install
 ```
 
-### 3. 配置环境变量
-
-⚠️ **重要：请勿将真实的 API Token 提交到代码仓库！**
-
-复制环境变量模板：
+### 2. 配置环境变量
 
 ```bash
 cp .env.example .env.local
 ```
 
-编辑 `.env.local` 文件，填写你的 ModelScope API Token：
-
-1. 访问 [ModelScope](https://modelscope.cn/my/myaccesstoken) 获取 Token
-2. 将 `your_modelscope_token_here` 替换为你的真实 Token
+编辑 `.env.local`：
 
 ```bash
-# .env.local
-MODELSCOPE_ACCESS_TOKEN=your_actual_token_here
-```
+# 魔塔 API（房源识别 + 翻译）
+# 获取：https://modelscope.cn/my/myaccesstoken
+MODELSCOPE_ACCESS_TOKEN=ms-xxxxxxxxxxxxxxxx
 
-> 📚 详细安全配置说明请查看 [SECURITY.md](./SECURITY.md)
-
-编辑 `.env.local`，填写您的魔塔API Token：
-
-```bash
-# 魔塔（ModelScope）API配置
-MODELSCOPE_ACCESS_TOKEN=ms-your-token-here
-
-# OCR识别模型（多模态）
-OCR_MODEL_ID=Qwen/Qwen2-VL-7B-Instruct
+# OCR 识别模型（多模态 VL）
+OCR_MODEL_ID=Qwen/Qwen3-VL-30B-A3B-Instruct
 OCR_TEMPERATURE=0.1
 OCR_MAX_TOKENS=2048
 
-# 文字解析模型
+# 翻译文本模型
 TEXT_MODEL_ID=Qwen/Qwen2.5-32B-Instruct
 TEXT_TEMPERATURE=0.1
 TEXT_MAX_TOKENS=1024
+
+# 火山引擎（图生图 SeedEdit 3.0）
+# 获取：https://console.volcengine.com/iam/keymanage/
+VOLCENGINE_ACCESS_KEY=your_access_key
+VOLCENGINE_SECRET_KEY=your_secret_key
 ```
 
-**如何获取魔塔Token？**
-
-1. 访问 https://modelscope.cn/
-2. 注册/登录账号
-3. 进入「个人中心」→「访问令牌」
-4. 创建新令牌并复制
-
-### 4. 启动开发服务器
+### 3. 启动开发服务器
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
-打开浏览器访问 http://localhost:3000
+访问 http://localhost:3000
 
-### 5. 构建生产版本
+### 4. 构建生产版本
 
 ```bash
-npm run build
-npm run start
+pnpm build
+pnpm start
 ```
+
+---
 
 ## 项目结构
 
 ```
 fy/
 ├── app/
-│   ├── page.tsx                    # 主页面
-│   ├── layout.tsx                  # 根布局
-│   ├── api/
-│   │   └── recognize/
-│   │       └── route.ts            # 图片识别API路由
-│   └── globals.css                 # 全局样式
+│   ├── page.tsx                        # 房源识别页面
+│   ├── translate/
+│   │   └── page.tsx                    # 图片翻译页面
+│   └── api/
+│       ├── recognize/route.ts          # 房源识别接口
+│       ├── translate/route.ts          # 翻译任务提交接口
+│       └── task/[taskId]/route.ts      # 异步任务查询接口
 ├── components/
-│   ├── UploadArea.tsx              # 上传区域组件
-│   ├── ImagePreview.tsx            # 图片预览组件
-│   ├── PropertyTable.tsx           # 房源表格组件
-│   ├── EditModal.tsx               # 编辑弹窗组件
-│   └── ExportButton.tsx            # 导出按钮组件
+│   ├── ImageCard.tsx                   # 图片卡片（含放大 Lightbox）
+│   ├── UploadZone.tsx                  # 拖拽上传区域
+│   ├── LanguageSelector.tsx            # 目标语言选择
+│   └── ChannelSelector.tsx             # 图生图渠道选择
+├── hooks/
+│   └── useTranslate.ts                 # 翻译状态管理 + 轮询 schedule
 ├── lib/
-│   ├── config.ts                   # 配置管理
-│   ├── ocr-vision.ts               # 多模态OCR服务
-│   ├── ai-parser-text.ts           # 文本解析服务
-│   ├── data-normalizer.ts          # 数据规整
-│   └── excel-export.ts             # Excel导出
+│   ├── config.ts                       # 全局配置
+│   ├── sign.ts                         # 火山引擎 HMAC-SHA256 签名
+│   ├── ocr-translate.ts                # OCR 识别 + 文本翻译
+│   ├── ocr-vision.ts                   # 房源识别（多模态）
+│   ├── channels/
+│   │   ├── index.ts                    # 渠道分发器
+│   │   └── volcengine.ts               # 火山引擎 SeedEdit 实现
+│   └── data-normalizer.ts              # 房源数据规整
 ├── types/
-│   └── property.ts                 # TypeScript类型定义
-├── RP/                             # 需求文档目录
-│   ├── 需求文档.md
-│   ├── 开发计划.md
-│   ├── 技术实现方案-NextJS.md
-│   ├── 快速开始指南.md
-│   ├── 魔塔API使用指南.md
-│   └── 模型配置指南.md
-├── .env.example                    # 环境变量模板
-├── .env.local                      # 实际配置（不提交）
-├── package.json
-├── tsconfig.json
-└── next.config.js
+│   ├── translate.ts                    # 翻译模块类型定义
+│   └── property.ts                     # 房源类型定义
+├── docs/                               # 详细开发文档
+│   ├── README-房源识别.md
+│   └── README-图片翻译.md
+├── .env.example                        # 环境变量模板
+└── .env.local                          # 实际配置（不提交 Git）
 ```
 
-## 核心功能
+---
 
-### 1. 图片上传
+## API 接口
 
-- 支持点击上传和拖拽上传
-- 格式限制：JPG、PNG
-- 大小限制：单张≤10MB
-- 数量限制：最多20张
+### POST `/api/recognize` — 房源识别
 
-### 2. AI识别
-
-两种识别模式：
-
-**模式1：直接识别（推荐）**
-- 一步完成：图片 → JSON
-- 速度快（2-3秒）
-- 准确率高（95%+）
-
-**模式2：两步识别**
-- 第一步：图片 → 文字（OCR）
-- 第二步：文字 → JSON（解析）
-- 便于调试
-
-### 3. 数据管理
-
-- 实时展示识别结果
-- 按区域筛选（6个标准区域）
-- 编辑单条房源信息
-- 删除错误数据
-- 清空所有数据
-
-### 4. Excel导出
-
-- 前端生成Excel文件
-- 格式：.xlsx
-- 兼容Office和WPS
-- 文件名：房源汇总表_YYYYMMDD.xlsx
-
-## 环境要求
-
-- Node.js >= 18.0.0
-- npm >= 9.0.0
-- 支持现代浏览器（Chrome、Edge、Safari）
-
-## 依赖说明
-
-### 核心依赖
-
-- **next**: Next.js框架
-- **react**: React库
-- **typescript**: TypeScript支持
-- **openai**: 调用魔塔API（OpenAI兼容）
-- **axios**: HTTP请求库
-- **antd**: Ant Design UI组件库
-- **@ant-design/icons**: Ant Design图标
-- **xlsx**: Excel文件生成
-
-### 开发依赖
-
-- **eslint**: 代码检查
-- **tailwindcss**: CSS框架
-- **postcss**: CSS处理
-
-## 配置说明
-
-### 模型配置
-
-在 `.env.local` 中可以配置不同的模型：
-
-```bash
-# 生产环境（推荐）- 平衡速度和准确率
-OCR_MODEL_ID=Qwen/Qwen2-VL-7B-Instruct
-TEXT_MODEL_ID=Qwen/Qwen2.5-32B-Instruct
-
-# 高精度配置 - 准确率最高
-OCR_MODEL_ID=Qwen/Qwen2-VL-72B-Instruct
-TEXT_MODEL_ID=Qwen/Qwen2.5-72B-Instruct
-
-# 快速测试配置 - 速度最快
-OCR_MODEL_ID=Qwen/Qwen2-VL-7B-Instruct
-TEXT_MODEL_ID=Qwen/Qwen2.5-7B-Instruct
-```
-
-详见 `RP/模型配置指南.md`
-
-### 应用配置
-
-在 `lib/config.ts` 中可以修改：
-
-- 最大上传文件数
-- 单个文件大小限制
-- 允许的图片格式
-- 并发识别数量
-
-## API文档
-
-### POST /api/recognize
-
-识别图片中的房源信息
-
-**请求**：
 ```json
-{
-  "image": "data:image/jpeg;base64,...",
-  "mode": "direct"  // 或 "two-step"
-}
-```
+// 请求
+{ "image": "base64字符串" }
 
-**响应**：
-```json
+// 响应
 {
   "success": true,
   "data": {
-    "id": "prop-xxx",
     "region": "瑶海区",
     "building": "万事通大厦",
-    "roomNumber": "1005",
     "area": "252㎡",
-    "price": "42元/㎡/天",
-    "propertyFee": "3.5元/㎡/月",
-    "commission": "全佣金",
-    "remarks": "含家具，电梯口",
-    "confidence": 0.96
+    "price": "42元/㎡/天"
   }
 }
 ```
 
-## 性能指标
+### POST `/api/translate` — 提交翻译任务
 
-- **识别速度**：2-3秒/张
-- **识别准确率**：95%+（核心字段）
-- **并发处理**：5张/批次
-- **成本**：约0.001元/张
+```json
+// 请求
+{ "id": "uuid", "base64": "...", "format": "jpeg", "targetLang": "en", "channel": "volcengine" }
 
-## 部署
-
-### Vercel部署（推荐）
-
-1. 推送代码到GitHub
-2. 导入项目到Vercel
-3. 配置环境变量
-4. 自动部署完成
-
-### 自托管部署
-
-```bash
-# 构建
-npm run build
-
-# 启动
-npm run start
-
-# 使用PM2（推荐）
-pm2 start npm --name "fy" -- start
+// 响应
+{ "id": "uuid", "success": true, "taskId": "7392616336519610409", "texts": [...] }
 ```
 
-### Docker部署
+### GET `/api/task/[taskId]?channel=volcengine` — 查询任务状态
 
-```bash
-docker build -t fy .
-docker run -p 3000:3000 --env-file .env.local fy
+```json
+// 响应（生成中）
+{ "success": true, "status": "generating" }
+
+// 响应（完成）
+{ "success": true, "status": "done", "base64": "处理后图片base64" }
 ```
 
-## 常见问题
-
-### Q1：识别速度慢怎么办？
-**A**：
-- 切换到7B小模型
-- 使用直接识别模式
-- 减小max_tokens
-
-### Q2：识别准确率不高？
-**A**：
-- 确保图片清晰
-- 使用72B大模型
-- 降低temperature到0.05
-- 优化Prompt
-
-### Q3：API调用失败？
-**A**：
-- 检查Token是否正确
-- 确认网络连接
-- 查看API额度是否用尽
-
-## 开发文档
-
-详细文档请查看 `RP/` 目录：
-
-- 📄 需求文档.md - 项目需求详情
-- 📄 开发计划.md - 开发规划
-- 📄 技术实现方案-NextJS.md - 完整实现方案
-- 📄 快速开始指南.md - 从零搭建教程
-- 📄 魔塔API使用指南.md - API详细说明
-- 📄 模型配置指南.md - 模型选择和配置
-
-## 贡献指南
-
-欢迎提交Issue和Pull Request！
-
-## 许可证
-
-MIT License
-
-## 联系方式
-
-如有问题，请提交Issue或联系开发者。
+任务状态：`in_queue` → `generating` → `done` / `not_found` / `expired`
 
 ---
 
-**技术支持**：
-- 魔塔官网：https://modelscope.cn/
-- Next.js文档：https://nextjs.org/docs
-- Ant Design文档：https://ant.design/
+## 图生图工作流
+
+```
+前端上传图片
+     ↓
+POST /api/translate
+     ↓
+Step 1: 魔塔 VL 模型 OCR 识别广告文案（排除品牌名/产品名）
+     ↓
+Step 2: 魔塔文本模型 翻译文案
+     ↓
+Step 3: 提交火山引擎 SeedEdit 3.0 异步任务 → 返回 task_id
+     ↓
+前端每 3 秒轮询 GET /api/task/[taskId]
+     ↓
+任务完成 → 返回处理后图片 base64 → 前端展示 / 下载
+```
+
+---
+
+## 部署
+
+### Vercel（推荐）
+
+1. 推送代码到 GitHub
+2. 在 Vercel 导入项目
+3. 配置上述所有环境变量
+4. 自动部署
+
+### 自托管
+
+```bash
+pnpm build && pnpm start
+
+# 或使用 PM2
+pm2 start npm --name "fy" -- start
+```
+
+---
+
+## 详细文档
+
+| 文档 | 说明 |
+|------|------|
+| [docs/README-房源识别.md](./docs/README-房源识别.md) | 房源识别模块开发细节、模型配置、字段说明 |
+| [docs/README-图片翻译.md](./docs/README-图片翻译.md) | 图片翻译模块架构、火山引擎接入、异步轮询设计 |
+
+---
+
+## 环境要求
+
+- Node.js ≥ 18
+- pnpm ≥ 8
+
+## 许可证
+
+MIT
