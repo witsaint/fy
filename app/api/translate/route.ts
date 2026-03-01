@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ChannelKey } from '@/types/translate';
 import { ocrAndTranslate } from '@/lib/ocr-translate';
-import { dispatchChannel } from '@/lib/channels';
+import { dispatchSubmitTask } from '@/lib/channels';
 
 export async function POST(request: NextRequest) {
   let id: string | undefined;
@@ -36,13 +36,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ id, success: false, error: '未识别到广告文案文字' });
     }
 
-    // Step 3：调用渠道图生图
-    const translatedBase64 = await dispatchChannel(channel, base64, pairs);
+    // Step 3：提交异步图生图任务，返回 taskId
+    const taskId = await dispatchSubmitTask(channel, base64, pairs);
 
     return NextResponse.json({
       id,
       success: true,
-      translatedBase64,
+      taskId,
+      channel,
       texts: pairs,
     });
   } catch (err: unknown) {

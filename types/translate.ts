@@ -1,4 +1,6 @@
-export type ImageStatus = 'idle' | 'processing' | 'done' | 'error';
+export type ImageStatus = 'idle' | 'processing' | 'polling' | 'done' | 'error';
+
+export type TaskPollStatus = 'in_queue' | 'generating' | 'done' | 'not_found' | 'expired';
 
 export type ChannelKey = 'volcengine';
 
@@ -16,6 +18,10 @@ export interface ImageItem {
   file: File;
   previewUrl: string;
   status: ImageStatus;
+  /** 异步任务 ID，提交后由后端返回 */
+  taskId?: string;
+  /** 任务所用渠道，轮询时需要 */
+  channel?: ChannelKey;
   translatedBase64?: string;
   texts?: { original: string; translated: string }[];
   errorMessage?: string;

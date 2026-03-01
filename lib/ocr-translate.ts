@@ -4,7 +4,7 @@ import { config } from './config';
 // 多模态 VL 模型必须走 DashScope 兼容端点
 const visionClient = new OpenAI({
   apiKey: config.modelScope.apiKey,
-  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  baseURL: config.modelScope.baseURL,
 });
 
 // 纯文本模型走魔塔推理端点
@@ -51,16 +51,23 @@ async function ocrAdText(base64: string, format: string): Promise<string[]> {
       messages: [
         {
           role: 'system',
-          content: '你是一个专业的广告图片文字识别助手，擅长从广告图片中识别文案文字。',
+          content: `你是一个专业的广告图片文字识别助手，擅长从广告图片中提取需要翻译的文案文字。
+识别规则：
+- 需要识别：标题、口号、描述、促销信息、活动文案、功能说明、使用说明等广告正文内容。
+- 严格排除（不得出现在结果中）：
+  1. 品牌名（包括中文/英文品牌名，如"华为"、"Apple"、"小米"、"NIKE"等）
+  2. 产品名称/型号（如"iPhone 15 Pro"、"MacBook Air"、"AirPods"等）
+  3. 价格数字及货币符号（如"¥999"、"$99.9"）
+  4. 纯英文或纯数字字符串
+  5. 网址、电话号码`,
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: `请识别图片中的广告文案文字，包括：标题、口号、描述、促销信息、活动文案等。
-不要包含：商品名称（品牌名/型号）、价格数字、纯英文/数字内容。
-仅返回JSON字符串数组，不要任何其他内容，如果没有则返回 []：
+              text: `请识别图片中需要翻译的广告文案，严格排除品牌名和产品名称/型号。
+仅返回JSON字符串数组，不要任何其他内容，如果没有需要翻译的文字则返回 []：
 ["文字1","文字2","文字3"]`,
             },
             {
@@ -107,7 +114,10 @@ async function translateTexts(texts: string[], targetLang: string): Promise<Text
       messages: [
         {
           role: 'system',
-          content: '你是一个专业的广告文案翻译助手，擅长将中文广告文案准确翻译为目标语言，保持原有语气和风格。',
+          content: `你是一个专业的广告文案翻译助手，擅长将中文广告文案准确翻译为目标语言，保持原有语气和风格。
+翻译规则：
+- 品牌名、产品名称/型号如果混入文案中，保持原样不翻译（直接保留原文）。
+- 翻译要自然流畅，符合目标语言的广告表达习惯。`,
         },
         {
           role: 'user',

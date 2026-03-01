@@ -1,73 +1,74 @@
-import crypto from 'crypto';
 import type { TextPair } from '@/lib/ocr-translate';
+import { sign, getDateTimeNow, getBodySha } from '@/lib/sign';
 
 const ACCESS_KEY = process.env.VOLCENGINE_ACCESS_KEY ?? '';
 const SECRET_KEY = process.env.VOLCENGINE_SECRET_KEY ?? '';
 const ENDPOINT = 'https://visual.volcengineapi.com';
 const SERVICE = 'cv';
 const REGION = 'cn-north-1';
-const ACTION = 'CVProcess';
 const VERSION = '2022-08-31';
-const REQ_KEY = 'img2img_edit_v3'; // SeedEdit 3.0
+const REQ_KEY = 'seededit_v3.0'; // SeedEdit 3.0
+
+export type TaskStatus = 'in_queue' | 'generating' | 'done' | 'not_found' | 'expired';
+
+export interface SubmitTaskResult {
+  taskId: string;
+}
+
+export interface QueryTaskResult {
+  status: TaskStatus;
+  base64?: string;
+  imageUrl?: string;
+}
 
 // ──────────────────────────────────────────
-// 签名工具函数（HMAC-SHA256，火山引擎规范）
+// 内部：构造签名请求并发送
 // ──────────────────────────────────────────
 
-function hmac(key: Buffer | string, data: string): Buffer {
-  return crypto.createHmac('sha256', key).update(data, 'utf8').digest();
-}
+async function callApi(action: string, bodyObj: Record<string, unknown>): Promise<Response> {
+  if (!ACCESS_KEY || !SECRET_KEY) {
+    throw new Error('缺少火山引擎鉴权配置 VOLCENGINE_ACCESS_KEY / VOLCENGINE_SECRET_KEY');
+  }
 
-function sha256Hex(data: string | Buffer): string {
-  return crypto.createHash('sha256').update(data).digest('hex');
-}
+  const bodyStr = JSON.stringify(bodyObj);
+  const bodyBytes = Buffer.from(bodyStr, 'utf8');
+  const bodyHash = getBodySha(bodyBytes);
+  const datetime = getDateTimeNow();
+  const host = 'visual.volcengineapi.com';
+  const contentType = 'application/json';
 
-function getDateTimeNow(): string {
-  return new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
-}
+  const query: Record<string, string> = { Action: action, Version: VERSION };
 
-function buildSignature(
-  method: string,
-  path: string,
-  query: Record<string, string>,
-  headers: Record<string, string>,
-  bodyHash: string,
-  datetime: string
-): string {
-  const date = datetime.substring(0, 8);
+  const headers: Record<string, string> = {
+    'Content-Type': contentType,
+    Host: host,
+    'X-Date': datetime,
+    'X-Content-Sha256': bodyHash,
+  };
 
-  // 规范化查询字符串（key 排序）
-  const canonicalQuery = Object.keys(query)
+  const authorization = sign({
+    method: 'POST',
+    pathName: '/',
+    query,
+    headers,
+    region: REGION,
+    serviceName: SERVICE,
+    accessKeyId: ACCESS_KEY,
+    secretAccessKey: SECRET_KEY,
+    bodySha: bodyHash,
+    needSignHeaderKeys: ['host', 'x-date', 'x-content-sha256', 'content-type'],
+  });
+
+  const queryStr = Object.keys(query)
     .sort()
     .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(query[k])}`)
     .join('&');
 
-  // 参与签名的 headers：host + x-date + x-content-sha256
-  const signHeaderKeys = ['host', 'x-content-sha256', 'x-date'];
-  const canonicalHeaders = signHeaderKeys
-    .map((k) => `${k}:${headers[k] ?? ''}\n`)
-    .join('');
-  const signedHeaders = signHeaderKeys.join(';');
-
-  const canonicalRequest = [
-    method.toUpperCase(),
-    path,
-    canonicalQuery,
-    canonicalHeaders,
-    signedHeaders,
-    bodyHash,
-  ].join('\n');
-
-  const credentialScope = `${date}/${REGION}/${SERVICE}/request`;
-  const stringToSign = ['HMAC-SHA256', datetime, credentialScope, sha256Hex(canonicalRequest)].join('\n');
-
-  const kDate = hmac(SECRET_KEY, date);
-  const kRegion = hmac(kDate, REGION);
-  const kService = hmac(kRegion, SERVICE);
-  const kSigning = hmac(kService, 'request');
-  const signature = hmac(kSigning, stringToSign).toString('hex');
-
-  return `HMAC-SHA256 Credential=${ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  return fetch(`${ENDPOINT}/?${queryStr}`, {
+    method: 'POST',
+    headers: { ...headers, Authorization: authorization },
+    body: bodyBytes,
+  });
 }
 
 // ──────────────────────────────────────────
@@ -85,61 +86,21 @@ function buildPrompt(pairs: TextPair[]): string {
 }
 
 /**
- * 调用火山引擎 SeedEdit 3.0 进行图生图。
- * 传入原图 base64、翻译文本对，返回处理后图片的 base64。
+ * 提交图生图任务，返回 task_id（异步模式）。
  */
-export async function volcengineEditImage(
+export async function volcengineSubmitTask(
   base64: string,
   pairs: TextPair[]
-): Promise<string> {
-  if (!ACCESS_KEY || !SECRET_KEY) {
-    throw new Error('缺少火山引擎鉴权配置 VOLCENGINE_ACCESS_KEY / VOLCENGINE_SECRET_KEY');
-  }
-
+): Promise<SubmitTaskResult> {
   const prompt = buildPrompt(pairs);
 
-  const bodyObj = {
+  const res = await callApi('CVSync2AsyncSubmitTask', {
     req_key: REQ_KEY,
-    image_base64: base64,
+    binary_data_base64: [base64],
     prompt,
     seed: -1,
     scale: 0.7,
     return_url: false,
-  };
-
-  const bodyStr = JSON.stringify(bodyObj);
-  const bodyHash = sha256Hex(bodyStr);
-  const datetime = getDateTimeNow();
-  const host = 'visual.volcengineapi.com';
-
-  const query: Record<string, string> = {
-    Action: ACTION,
-    Version: VERSION,
-  };
-
-  const headers: Record<string, string> = {
-    host,
-    'x-date': datetime,
-    'x-content-sha256': bodyHash,
-    'content-type': 'application/json',
-  };
-
-  const authorization = buildSignature('POST', '/', query, headers, bodyHash, datetime);
-
-  const queryStr = Object.keys(query)
-    .sort()
-    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(query[k])}`)
-    .join('&');
-
-  const url = `${ENDPOINT}/?${queryStr}`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      ...headers,
-      Authorization: authorization,
-    },
-    body: bodyStr,
   });
 
   if (!res.ok) {
@@ -150,29 +111,65 @@ export async function volcengineEditImage(
   const data = (await res.json()) as {
     code?: number;
     message?: string;
-    data?: {
-      algorithm_base_resp?: { status_code?: number; status_message?: string };
-      binary_data_base64?: string[];
-      image_urls?: string[];
-    };
+    request_id?: string;
+    data?: { task_id?: string };
   };
 
   if (data.code !== 10000) {
     throw new Error(`火山引擎错误 ${data.code}: ${data.message}`);
   }
 
-  // 优先使用 binary_data_base64（直接 base64，无需二次下载）
-  const b64 = data.data?.binary_data_base64?.[0];
-  if (b64) return b64;
-
-  // 降级：下载 image_url
-  const imgUrl = data.data?.image_urls?.[0];
-  if (imgUrl) {
-    const imgRes = await fetch(imgUrl);
-    if (!imgRes.ok) throw new Error(`下载结果图片失败 (${imgRes.status})`);
-    const buf = await imgRes.arrayBuffer();
-    return Buffer.from(buf).toString('base64');
+  const taskId = data.data?.task_id;
+  if (!taskId) {
+    throw new Error('火山引擎未返回 task_id');
   }
 
-  throw new Error('火山引擎未返回图片数据');
+  return { taskId };
+}
+
+/**
+ * 查询异步任务状态和结果。
+ */
+export async function volcengineQueryTask(taskId: string): Promise<QueryTaskResult> {
+  const res = await callApi('CVSync2AsyncGetResult', {
+    req_key: REQ_KEY,
+    task_id: taskId,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`火山引擎查询失败 (${res.status}): ${errText}`);
+  }
+
+  const data = (await res.json()) as {
+    code?: number;
+    message?: string;
+    data?: {
+      status?: TaskStatus;
+      binary_data_base64?: string[];
+      image_urls?: string[];
+    };
+  };
+
+  if (data.code !== 10000) {
+    throw new Error(`火山引擎查询错误 ${data.code}: ${data.message}`);
+  }
+
+  const status = data.data?.status ?? 'not_found';
+
+  if (status !== 'done') {
+    return { status };
+  }
+
+  const base64 = data.data?.binary_data_base64?.[0];
+  if (base64) {
+    return { status, base64 };
+  }
+
+  const imageUrl = data.data?.image_urls?.[0];
+  if (imageUrl) {
+    return { status, imageUrl };
+  }
+
+  return { status };
 }

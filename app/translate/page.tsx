@@ -19,6 +19,7 @@ export default function TranslatePage() {
     targetLang,
     channel,
     isProcessing,
+    isPolling,
     doneImages,
     hasPending,
     setTargetLang,
@@ -55,6 +56,7 @@ export default function TranslatePage() {
   }
 
   const processingCount = images.filter((i) => i.status === 'processing').length;
+  const pollingCount = images.filter((i) => i.status === 'polling').length;
   const doneCount = doneImages.length;
   const errorCount = images.filter((i) => i.status === 'error').length;
 
@@ -74,7 +76,10 @@ export default function TranslatePage() {
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>共 {images.length} 张</span>
               {processingCount > 0 && (
-                <span className="text-blue-500">处理中 {processingCount}</span>
+                <span className="text-blue-500">提交中 {processingCount}</span>
+              )}
+              {pollingCount > 0 && (
+                <span className="text-violet-500">生成中 {pollingCount}</span>
               )}
               {doneCount > 0 && (
                 <span className="text-green-600">已完成 {doneCount}</span>
@@ -136,11 +141,15 @@ export default function TranslatePage() {
           <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-white px-4 py-3 shadow-sm">
             <Button
               onClick={startTranslate}
-              disabled={!hasPending || isProcessing}
+              disabled={!hasPending || isProcessing || isPolling}
               className="gap-2"
             >
               <Play className="h-4 w-4" />
-              {isProcessing ? `处理中（${processingCount} 张）...` : '开始翻译'}
+              {isProcessing
+                ? `提交中（${processingCount} 张）...`
+                : isPolling
+                  ? `生成中（${pollingCount} 张）...`
+                  : '开始翻译'}
             </Button>
 
             <Button

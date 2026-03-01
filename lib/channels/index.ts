@@ -1,19 +1,36 @@
 import type { ChannelKey } from '@/types/translate';
 import type { TextPair } from '@/lib/ocr-translate';
-import { volcengineEditImage } from './volcengine';
+import type { QueryTaskResult } from './volcengine';
+import { volcengineSubmitTask, volcengineQueryTask } from './volcengine';
 
 /**
- * 根据渠道 key 分发到对应的图生图实现。
- * 返回处理后图片的 base64 字符串。
+ * 提交图生图任务，返回 task_id。
  */
-export async function dispatchChannel(
+export async function dispatchSubmitTask(
   channel: ChannelKey,
   base64: string,
   pairs: TextPair[]
 ): Promise<string> {
   switch (channel) {
+    case 'volcengine': {
+      const { taskId } = await volcengineSubmitTask(base64, pairs);
+      return taskId;
+    }
+    default:
+      throw new Error(`未知渠道：${channel}`);
+  }
+}
+
+/**
+ * 查询异步任务状态和结果。
+ */
+export async function dispatchQueryTask(
+  channel: ChannelKey,
+  taskId: string
+): Promise<QueryTaskResult> {
+  switch (channel) {
     case 'volcengine':
-      return volcengineEditImage(base64, pairs);
+      return volcengineQueryTask(taskId);
     default:
       throw new Error(`未知渠道：${channel}`);
   }
