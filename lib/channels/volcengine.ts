@@ -8,6 +8,8 @@ const SERVICE = 'cv';
 const REGION = 'cn-north-1';
 const VERSION = '2022-08-31';
 const REQ_KEY = 'seededit_v3.0'; // SeedEdit 3.0
+const REQ_KEY_4 = 'jimeng_t2i_v40'; // 即梦图生图 v4.0
+const REQ_KEY_3 = 'jimeng_i2i_v30'; // 即梦图生图 v3.0
 
 export type TaskStatus = 'in_queue' | 'generating' | 'done' | 'not_found' | 'expired';
 
@@ -136,7 +138,7 @@ export async function volcengineSubmitTask(
   const prompt = buildPrompt(pairs, targetLang);
 
   const res = await callApi('CVSync2AsyncSubmitTask', {
-    req_key: REQ_KEY,
+    req_key: REQ_KEY_4,
     binary_data_base64: [base64],
     prompt,
     seed: -1,
